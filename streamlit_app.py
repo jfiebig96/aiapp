@@ -1,45 +1,35 @@
 import streamlit as st
-import random
-import time
+import requests
 
-st.write("Witaj ziomeczku!")
+# Twoje dane dostępowe
+API_KEY = "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"
+BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-st.caption("Note that this demo app isn't actually connected to any LLMs. Those are expensive ;)")
+# Funkcja do wysyłania zapytania
+def chat_with_openrouter(prompt):
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": "google/gemma-3b-it",  # Model na OpenRouter: "google/gemma-3b-it"
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    response = requests.post(BASE_URL, headers=headers, json=payload)
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+    else:
+        return f"Error: {response.status_code} - {response.text}"
 
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Let's start chatting! 👇"}]
+# Streamlit UI
+st.title("Chat z Gemma 3B 3bit za darmo przez OpenRouter")
 
-# Display chat messages from history on app rerun
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+user_input = st.text_input("Wpisz wiadomość:")
 
-# Accept user input
-if prompt := st.chat_input("What is up?"):
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    # Display user message in chat message container
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # Display assistant response in chat message container
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
-        assistant_response = random.choice(
-            [
-                "Hello there! How can I assist you today?",
-                "Hi, human! Is there anything I can help you with?",
-                "Do you need help?",
-            ]
-        )
-        # Simulate stream of response with milliseconds delay
-        for chunk in assistant_response.split():
-            full_response += chunk + " "
-            time.sleep(0.05)
-            # Add a blinking cursor to simulate typing
-            message_placeholder.markdown(full_response + "▌")
-        message_placeholder.markdown(full_response)
-    # Add assistant response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+if st.button("Wyślij"):
+    if user_input:
+        answer = chat_with_openrouter(user_input)
+        st.write("**Odpowiedź:**")
+        st.write(answer)
+    else:
+        st.warning("Najpierw wpisz wiadomość!")
