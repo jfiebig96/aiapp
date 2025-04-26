@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+import requests
 
 # Ładowanie danych z secrets
 API_KEY = "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"
