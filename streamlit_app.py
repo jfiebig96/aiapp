@@ -24,9 +24,9 @@ def chat_with_openrouter(messages):
         return f"Error {response.status_code}: {response.text}"
 
 # Budowanie interfejsu Streamlit
-st.title("Chat z Gemma 3B (OpenRouter) 💬")
+st.title("Chat z Gemma 3B By Kuba (OpenRouter) 💬")
 
-st.caption("Powered by OpenRouter & Google Gemma 3B model.")
+st.caption("Powered by CDV.")
 
 # Inicjalizacja historii rozmowy
 if "messages" not in st.session_state:
