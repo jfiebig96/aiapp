@@ -30,7 +30,7 @@ st.caption("Powered by CDV.")
 
 # Inicjalizacja historii rozmowy
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Let's start chatting! 👇"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Dawaj lecimy z tematem! 👇"}]
 
 # Wyświetlanie rozmowy
 for message in st.session_state.messages:
