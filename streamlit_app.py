@@ -2,9 +2,12 @@ import streamlit as st
 import requests
 import time
 
+# Bezpieczne pobieranie klucza API z sekcji Secrets
+if "api_key" not in st.secrets:
+    st.error("❌ Brak klucza 'api_key' w sekcji Secrets (Settings > Secrets).")
+    st.stop()
 
 API_KEY = st.secrets["api_key"]
-
 BASE_URL = "https://openrouter.ai/api/v1"
 MODEL = "google/gemma-3-1b-it:free"
 
@@ -22,23 +25,22 @@ def chat_with_openrouter(messages):
     if response.status_code == 200:
         return response.json()["choices"][0]["message"]["content"]
     else:
-        return f"Error {response.status_code}: {response.text}"
+        return f"❌ Błąd {response.status_code}: {response.text}"
 
-# Budowanie interfejsu Streamlit
-st.title("Chat z Gemma 3B By Kuba (OpenRouter) 💬")
+# UI Streamlit
+st.title("🤖 Chat z Gemma 3B by Kuba (OpenRouter)")
+st.caption("Powered by CDV & OpenRouter.ai")
 
-st.caption("Powered by CDV.")
-
-# Inicjalizacja historii rozmowy
+# Historia czatu
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Dawaj lecimy z tematem! 👇"}]
 
-# Wyświetlanie rozmowy
+# Wyświetlanie historii
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Akceptacja inputu użytkownika
+# Wprowadzenie nowej wiadomości
 if prompt := st.chat_input("Wpisz wiadomość..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
