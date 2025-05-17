@@ -5,8 +5,8 @@ import os
 st.set_page_config(layout="wide", page_title="OpenRouter chatbot app")
 st.title("OpenRouter chatbot app")
 
-# api_key, base_url = os.environ["API_KEY"], os.environ["BASE_URL"]
-api_key, base_url = st.secrets["API_KEY"], st.secrets["BASE_URL"]
+# api_key, base_url = os.environ["api_key"], os.environ["BASE_URL"]
+api_key, base_url = st.secrets["api_key"], st.secrets["BASE_URL"]
 selected_model = "google/gemma-3-1b-it:free"
 
 if "messages" not in st.session_state:
