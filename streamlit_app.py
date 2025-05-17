@@ -4,12 +4,11 @@ import tempfile
 from langchain.prompts import ChatPromptTemplate
 from chat_openrouter import ChatOpenRouter
 from docloader import load_documents_from_folder
-from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
-import torch
+from embedder import create_index, retrieve_docs
 
-# === FAISS Index z OpenAIEmbeddings ===
+# === Streamlit App Setup ===
+st.set_page_config(layout="wide", page_title="OpenRouter + PDF RAG Chat")
+st.title("📄 OpenRouter PDF Chatbot")
 from langchain.embeddings import OpenAIEmbeddings
 
 class FAISSIndex:
