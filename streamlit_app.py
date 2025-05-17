@@ -55,3 +55,4 @@ if prompt := st.chat_input("Zadaj pytanie na podstawie PDF..."):
 
     st.session_state.messages.append({"role": "assistant", "content": msg})
     st.chat_message("assistant").write(msg)
+
