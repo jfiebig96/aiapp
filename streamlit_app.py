@@ -2,14 +2,12 @@ import streamlit as st
 import requests
 import time
 import fitz  # PyMuPDF
-import os
-import tempfile
-from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain.chains.question_answering import load_qa_chain
-from langchain.chat_models import ChatOpenAI
+from langchain.llms import HuggingFaceHub
 
 # === Ustawienia API ===
 if "api_key" not in st.secrets:
@@ -17,8 +15,7 @@ if "api_key" not in st.secrets:
     st.stop()
 
 API_KEY = st.secrets["api_key"]
-BASE_URL = "https://openrouter.ai/api/v1"
-MODEL = "google/gemma-3-1b-it:free"
+MODEL = "google/gemma-1.1-2b-it"  # Możesz użyć dowolnego wspieranego przez HuggingFaceHub
 
 # === Funkcja: wyciąganie tekstu z PDF ===
 def extract_text_from_pdf(uploaded_file):
@@ -32,17 +29,17 @@ def extract_text_from_pdf(uploaded_file):
 def build_vectorstore(text):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
     docs = text_splitter.create_documents([text])
-    embeddings = OpenAIEmbeddings(openai_api_key=API_KEY)
+    embeddings = HuggingFaceEmbeddings()
     return FAISS.from_documents(docs, embeddings), docs
 
 def answer_question_with_rag(vectorstore, question):
-    llm = ChatOpenAI(openai_api_key=API_KEY, model_name="gpt-3.5-turbo")
+    llm = HuggingFaceHub(repo_id=MODEL, model_kwargs={"temperature": 0.2, "max_new_tokens": 500})
     chain = load_qa_chain(llm, chain_type="stuff")
     docs = vectorstore.similarity_search(question)
     return chain.run(input_documents=docs, question=question)
 
 # === Interfejs Streamlit ===
-st.title("📄 Chat + PDF (Gemma 3B + RAG)")
+st.title("📄 Chat + PDF (Gemma via HuggingFace + RAG)")
 st.caption("Upload PDF i zadawaj pytania o jego zawartość!")
 
 uploaded_file = st.file_uploader("📎 Prześlij plik PDF", type=["pdf"])
