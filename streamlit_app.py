@@ -2,12 +2,6 @@ import streamlit as st
 import requests
 import time
 import fitz  # PyMuPDF
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-from langchain.chains.question_answering import load_qa_chain
-from langchain.llms import HuggingFaceHub
 
 # === Ustawienia API ===
 if "api_key" not in st.secrets:
@@ -15,7 +9,8 @@ if "api_key" not in st.secrets:
     st.stop()
 
 API_KEY = st.secrets["api_key"]
-MODEL = "google/gemma-1.1-2b-it"  # Możesz użyć dowolnego wspieranego przez HuggingFaceHub
+BASE_URL = "https://openrouter.ai/api/v1"
+MODEL = "google/gemma-3-1b-it:free"
 
 # === Funkcja: wyciąganie tekstu z PDF ===
 def extract_text_from_pdf(uploaded_file):
@@ -25,44 +20,54 @@ def extract_text_from_pdf(uploaded_file):
             text += page.get_text()
     return text
 
-# === LangChain RAG: Wyszukiwanie odpowiedzi na podstawie tekstu PDF ===
-def build_vectorstore(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-    docs = text_splitter.create_documents([text])
-    embeddings = HuggingFaceEmbeddings()
-    return FAISS.from_documents(docs, embeddings), docs
-
-def answer_question_with_rag(vectorstore, question):
-    llm = HuggingFaceHub(repo_id=MODEL, model_kwargs={"temperature": 0.2, "max_new_tokens": 500})
-    chain = load_qa_chain(llm, chain_type="stuff")
-    docs = vectorstore.similarity_search(question)
-    return chain.run(input_documents=docs, question=question)
+# === Funkcja: zapytanie do OpenRouter ===
+def chat_with_openrouter(messages):
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": MODEL,
+        "messages": messages,
+    }
+    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload)
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+    else:
+        return f"❌ Błąd {response.status_code}: {response.text}"
 
 # === Interfejs Streamlit ===
-st.title("📄 Chat + PDF (Gemma via HuggingFace + RAG)")
+st.title("📄 Chat + PDF (Gemma 3B + OpenRouter)")
+
 st.caption("Upload PDF i zadawaj pytania o jego zawartość!")
 
+# === Upload PDF ===
 uploaded_file = st.file_uploader("📎 Prześlij plik PDF", type=["pdf"])
 pdf_text = ""
-vectorstore = None
 
 if uploaded_file:
     pdf_text = extract_text_from_pdf(uploaded_file)
     st.success("✅ Załadowano PDF!")
     with st.expander("📖 Podgląd treści PDF"):
-        st.write(pdf_text[:5000])
-    vectorstore, _ = build_vectorstore(pdf_text)
+        st.write(pdf_text)
 
 # === Historia rozmowy ===
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Dawaj lecimy z tematem! 👇"}]
+
+# === Dodanie kontekstu z PDF ===
+if pdf_text and not any("Zawartość PDF" in msg["content"] for msg in st.session_state.messages):
+    st.session_state.messages.append({
+        "role": "system",
+        "content": f"Zawartość PDF użytkownika:\n{pdf_text[:3000]}"  # można ograniczyć
+    })
 
 # === Wyświetlanie historii rozmowy ===
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# === Obsługa nowego zapytania ===
+# === Wprowadzenie wiadomości ===
 if prompt := st.chat_input("Zadaj pytanie na podstawie PDF-a lub ogólne..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
@@ -73,10 +78,7 @@ if prompt := st.chat_input("Zadaj pytanie na podstawie PDF-a lub ogólne..."):
         message_placeholder = st.empty()
         full_response = ""
 
-        if vectorstore:
-            assistant_message = answer_question_with_rag(vectorstore, prompt)
-        else:
-            assistant_message = "Nie przesłałeś jeszcze pliku PDF. Proszę dodaj dokument."
+        assistant_message = chat_with_openrouter(st.session_state.messages)
 
         for chunk in assistant_message.split():
             full_response += chunk + " "
