@@ -4,7 +4,34 @@ import tempfile
 from langchain.prompts import ChatPromptTemplate
 from chat_openrouter import ChatOpenRouter
 from docloader import load_documents_from_folder
-from embedder import create_index, retrieve_docs
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
+
+# === FAISS Index z SentenceTransformer ===
+class FAISSIndex:
+    def __init__(self, faiss_index, metadata):
+        self.index = faiss_index
+        self.metadata = metadata
+
+    def similarity_search(self, query_vector, k=3):
+        D, I = self.index.search(query_vector, k)
+        return [self.metadata[idx] for idx in I[0]]
+
+embed_model_id = 'sentence-transformers/all-MiniLM-L6-v2'
+model_embed = SentenceTransformer(embed_model_id)
+
+def create_index(documents):
+    texts = [doc["text"] for doc in documents]
+    metadata = [{"filename": doc["filename"], "text": doc["text"]} for doc in documents]
+    embeddings = model_embed.encode(texts, convert_to_numpy=True).astype("float32")
+    index = faiss.IndexFlatL2(embeddings.shape[1])
+    index.add(embeddings)
+    return FAISSIndex(index, metadata)
+
+def retrieve_docs(query, faiss_index, k=3):
+    query_vector = model_embed.encode([query], convert_to_numpy=True).astype("float32")
+    return faiss_index.similarity_search(query_vector, k=k)
 
 # === Streamlit App Setup ===
 st.set_page_config(layout="wide", page_title="OpenRouter + PDF RAG Chat")
