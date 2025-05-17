@@ -4,22 +4,12 @@ import streamlit as st
 from openai import OpenAI
 
 # === Funkcja: wyciąganie tekstu z pojedynczego pliku PDF ===
-def load_pdf(file_path):
-    doc = fitz.open(file_path)
+def load_pdf_from_file(uploaded_file):
     text = ""
-    for page in doc:
-        text += page.get_text()
-    doc.close()
+    with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
+        for page in doc:
+            text += page.get_text()
     return text
-
-# === Funkcja: wczytywanie wszystkich dokumentów PDF z folderu ===
-def load_documents_from_folder(folder_path):
-    documents = []
-    for filename in os.listdir(folder_path):
-        if filename.endswith(".pdf"):
-            text = load_pdf(os.path.join(folder_path, filename))
-            documents.append({"filename": filename, "text": text})
-    return documents
 
 # === Streamlit App Setup ===
 st.set_page_config(layout="wide", page_title="OpenRouter chatbot app")
@@ -34,12 +24,16 @@ if "messages" not in st.session_state:
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-# === Możliwość wyboru folderu PDF (dla lokalnych zastosowań) ===
-folder_path = st.text_input("📂 Wprowadź ścieżkę do folderu z PDF (opcjonalne):")
-if folder_path and os.path.isdir(folder_path):
-    docs = load_documents_from_folder(folder_path)
-    st.markdown(f"Znaleziono {len(docs)} dokumentów PDF:")
-    for doc in docs:
+# === Upload wielu plików PDF ===
+uploaded_files = st.file_uploader("📎 Prześlij jeden lub więcej plików PDF", type=["pdf"], accept_multiple_files=True)
+all_texts = []
+
+if uploaded_files:
+    for file in uploaded_files:
+        pdf_text = load_pdf_from_file(file)
+        all_texts.append({"filename": file.name, "text": pdf_text})
+    st.markdown(f"Znaleziono {len(all_texts)} przesłanych plików:")
+    for doc in all_texts:
         st.markdown(f"- `{doc['filename']}` ({len(doc['text'])} znaków)")
 
 # === Obsługa zapytań ===
