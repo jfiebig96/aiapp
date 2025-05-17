@@ -28,9 +28,9 @@ template = (
 )
 
 # Initialize ChatOpenRouter model
-MODEL_NAME = "mistralai/mistral-7b-instruct:free"
+MODEL_NAME = "google/gemma-3-1b-it:free"  # ensure valid model
 chat_model = ChatOpenRouter(
-    openai_api_key=st.secrets["API_KEY"],
+    openai_api_key=st.secrets.get("API_KEY", ""),
     model_name=MODEL_NAME,
     temperature=0.0
 )
@@ -38,7 +38,7 @@ chat_model = ChatOpenRouter(
 # Helper function: answer question via RAG
 def answer_question(question, docs):
     # prepare context
-    context = "\n\n".join([doc['text'] for doc in docs])
+    context = "\n\n".join([doc.get('text', '') for doc in docs])
     # format system prompt
     system_content = template.format(question=question, context=context)
     # build messages
@@ -46,10 +46,18 @@ def answer_question(question, docs):
         SystemMessage(content=system_content),
         HumanMessage(content=question)
     ]
-    # call model
-    response = chat_model(messages)
+    # call model with error handling
+    try:
+        response = chat_model(messages)
+    except Exception as e:
+        # propagate exception to main loop
+        raise RuntimeError(f"LLM call failed: {e}")
     # extract text
-    return getattr(response, 'content', None) or getattr(response, 'choices', None) and response.choices[0].message.content or str(response)
+    if hasattr(response, 'content') and response.content:
+        return response.content
+    if hasattr(response, 'choices') and response.choices:
+        return response.choices[0].message.content
+    return str(response)
 
 # Load and index documents
 if uploaded_files:
@@ -87,7 +95,11 @@ if "faiss_index" in st.session_state:
         # retrieve docs
         docs = retrieve_docs(user_input, st.session_state.faiss_index, k=3)
         # get answer
-        answer = answer_question(user_input, docs)
+        try:
+            answer = answer_question(user_input, docs)
+        except RuntimeError as e:
+            st.error(str(e))
+            answer = ""
 
         # append assistant message
         st.session_state.messages.append({"role": "assistant", "content": answer})
