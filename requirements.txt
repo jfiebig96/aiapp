@@ -2,6 +2,8 @@ streamlit
 openai
 faiss-cpu
 pymupdf
+faiss-cpu
+sentence-transformers
 langchain
 langchain-openai
-langchain-huggingface
+openai
