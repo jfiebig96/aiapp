@@ -1,57 +1,31 @@
-import os
 import streamlit as st
-import tempfile
-from chat_openrouter import ChatOpenRouter
-from docloader import load_documents_from_folder
-from embedder import create_index, retrieve_docs
+from openai import OpenAI
+import os
 
-# === Streamlit App Setup ===
-st.set_page_config(layout="wide", page_title="OpenRouter + PDF RAG Chat")
-st.title("📄 OpenRouter PDF Chatbot")
+st.set_page_config(layout="wide", page_title="OpenRouter chatbot app")
+st.title("OpenRouter chatbot app")
 
-# === Sesja czatu ===
+# api_key, base_url = os.environ["API_KEY"], os.environ["BASE_URL"]
+api_key, base_url = st.secrets["API_KEY"], st.secrets["BASE_URL"]
+selected_model = "google/gemma-3-1b-it:free"
+
 if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "assistant", "content": "Wgraj PDF i zadaj pytanie!"}]
+    st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?."}]
 
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-# === Upload wielu plików PDF ===
-uploaded_files = st.file_uploader("📎 Prześlij pliki PDF", type=["pdf"], accept_multiple_files=True)
-documents = []
-
-if uploaded_files:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for file in uploaded_files:
-            file_path = os.path.join(tmpdir, file.name)
-            with open(file_path, "wb") as f:
-                f.write(file.read())
-        documents = load_documents_from_folder(tmpdir)
-
-    if documents:
-        st.success(f"📚 Załadowano {len(documents)} dokumentów")
-        for doc in documents:
-            st.markdown(f"- `{doc['filename']}` ({len(doc['text'])} znaków)")
-
-# === Budowanie indeksu FAISS ===
-index = create_index(documents) if documents else None
-
-# === Obsługa zapytań ===
-if prompt := st.chat_input("Zadaj pytanie na podstawie PDF..."):
+if prompt := st.chat_input():
+    if not api_key:
+        st.info("Invalid API key.")
+        st.stop()
+    client = OpenAI(api_key=api_key, base_url=base_url)
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
-
-    if not index:
-        msg = "⚠️ Nie przesłano żadnych plików PDF."
-    else:
-        context_chunks = retrieve_docs(prompt, index, k=3)
-        context_text = "\n\n".join([chunk["text"][:1000] for chunk in context_chunks])
-        system_prompt = f"Oto kontekst z dokumentów PDF:\n{context_text}"
-
-        llm = ChatOpenRouter(temperature=0.3)
-        response = llm.invoke([{"role": "system", "content": system_prompt},
-                               {"role": "user", "content": prompt}])
-        msg = response.content if hasattr(response, "content") else str(response)
-
+    response = client.chat.completions.create(
+        model=selected_model,
+        messages=st.session_state.messages
+    )
+    msg = response.choices[0].message.content
     st.session_state.messages.append({"role": "assistant", "content": msg})
     st.chat_message("assistant").write(msg)
