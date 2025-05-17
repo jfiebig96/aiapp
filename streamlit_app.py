@@ -7,6 +7,7 @@ from docloader import load_documents_from_folder
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+import torch
 
 # === FAISS Index z SentenceTransformer ===
 class FAISSIndex:
@@ -19,18 +20,20 @@ class FAISSIndex:
         return [self.metadata[idx] for idx in I[0]]
 
 embed_model_id = 'sentence-transformers/all-MiniLM-L6-v2'
-model_embed = SentenceTransformer(embed_model_id)
+model_embed = SentenceTransformer(embed_model_id, device="cpu")
 
 def create_index(documents):
     texts = [doc["text"] for doc in documents]
     metadata = [{"filename": doc["filename"], "text": doc["text"]} for doc in documents]
-    embeddings = model_embed.encode(texts, convert_to_numpy=True).astype("float32")
+    with torch.no_grad():
+        embeddings = model_embed.encode(texts, convert_to_numpy=True).astype("float32")
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
     return FAISSIndex(index, metadata)
 
 def retrieve_docs(query, faiss_index, k=3):
-    query_vector = model_embed.encode([query], convert_to_numpy=True).astype("float32")
+    with torch.no_grad():
+        query_vector = model_embed.encode([query], convert_to_numpy=True).astype("float32")
     return faiss_index.similarity_search(query_vector, k=k)
 
 # === Streamlit App Setup ===
