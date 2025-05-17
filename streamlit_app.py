@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import time
 
-# Pobierz klucz API z secrets (zamiast trzymać go w kodzie)
+
 API_KEY = st.secrets["api_key"]
 
 BASE_URL = "https://openrouter.ai/api/v1"
