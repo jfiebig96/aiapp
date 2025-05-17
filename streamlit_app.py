@@ -19,7 +19,7 @@ api_key, base_url = st.secrets["api_key"], st.secrets["BASE_URL"]
 selected_model = "google/gemma-3-1b-it:free"
 
 if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?."}]
+    st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
 
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
@@ -41,12 +41,22 @@ if prompt := st.chat_input():
     if not api_key:
         st.info("Invalid API key.")
         st.stop()
+
     client = OpenAI(api_key=api_key, base_url=base_url)
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
+
+    # Dodaj zawartość PDF jako wiadomość systemową, jeśli jest dostępna
+    if all_texts:
+        combined_pdf_text = "\n\n".join([f"{doc['filename']}:\n{doc['text']}" for doc in all_texts])
+        pdf_context = {"role": "system", "content": f"Oto zawartość przesłanych plików PDF:\n{combined_pdf_text[:4000]}"}
+        messages_with_pdf = [pdf_context] + st.session_state.messages
+    else:
+        messages_with_pdf = st.session_state.messages
+
     response = client.chat.completions.create(
         model=selected_model,
-        messages=st.session_state.messages
+        messages=messages_with_pdf
     )
     msg = response.choices[0].message.content
     st.session_state.messages.append({"role": "assistant", "content": msg})
