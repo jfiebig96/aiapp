@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import tempfile
+from langchain.prompts import ChatPromptTemplate
 from chat_openrouter import ChatOpenRouter
 from docloader import load_documents_from_folder
 from embedder import create_index, retrieve_docs
@@ -10,11 +11,10 @@ st.set_page_config(layout="wide", page_title="OpenRouter + PDF RAG Chat")
 st.title("📄 OpenRouter PDF Chatbot")
 
 # === Sesja czatu ===
-if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "assistant", "content": "Wgraj PDF i zadaj pytanie!"}]
-
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
+if "query" not in st.session_state:
+    st.session_state.query = ""
+if "answer" not in st.session_state:
+    st.session_state.answer = ""
 
 # === Upload wielu plików PDF ===
 uploaded_files = st.file_uploader("📎 Prześlij pliki PDF", type=["pdf"], accept_multiple_files=True)
@@ -37,22 +37,32 @@ if uploaded_files:
 index = create_index(documents) if documents else None
 
 # === Obsługa zapytań ===
-if prompt := st.chat_input("Zadaj pytanie na podstawie PDF..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
+selected_model = "mistralai/mistral-7b-instruct:free"
+model = ChatOpenRouter(model_name=selected_model, temperature=0.3)
+
+def answer_question(question, documents, model):
+    context = "\n\n".join([doc["text"] for doc in documents])
+    template = """
+    Question: {question}
+    Context: {context}
+    Answer:
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+    chain = prompt | model
+    return chain.invoke({"question": question, "context": context})
+
+if query := st.chat_input("Zadaj pytanie na podstawie PDF..."):
+    st.session_state.query = query
 
     if not index:
-        msg = "⚠️ Nie przesłano żadnych plików PDF."
+        st.session_state.answer = "⚠️ Nie przesłano żadnych plików PDF."
     else:
-        context_chunks = retrieve_docs(prompt, index, k=3)
-        context_text = "\n\n".join([chunk["text"][:1000] for chunk in context_chunks])
-        system_prompt = f"Oto kontekst z dokumentów PDF:\n{context_text}"
+        docs = retrieve_docs(query, index, k=3)
+        response = answer_question(query, docs, model)
+        st.session_state.answer = response.content if hasattr(response, "content") else str(response)
 
-        llm = ChatOpenRouter(temperature=0.3)
-        response = llm.invoke([{"role": "system", "content": system_prompt},
-                               {"role": "user", "content": prompt}])
-        msg = response.content if hasattr(response, "content") else str(response)
-
-    st.session_state.messages.append({"role": "assistant", "content": msg})
-    st.chat_message("assistant").write(msg)
-
+# === Wyświetlanie wyników ===
+if st.session_state.query:
+    st.chat_message("user").write(st.session_state.query)
+if st.session_state.answer:
+    st.chat_message("assistant").write(st.session_state.answer)
