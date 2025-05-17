@@ -9,7 +9,9 @@ import faiss
 import numpy as np
 import torch
 
-# === FAISS Index z SentenceTransformer ===
+# === FAISS Index z OpenAIEmbeddings ===
+from langchain.embeddings import OpenAIEmbeddings
+
 class FAISSIndex:
     def __init__(self, faiss_index, metadata):
         self.index = faiss_index
@@ -19,21 +21,26 @@ class FAISSIndex:
         D, I = self.index.search(query_vector, k)
         return [self.metadata[idx] for idx in I[0]]
 
-embed_model_id = 'sentence-transformers/all-MiniLM-L6-v2'
-model_embed = SentenceTransformer(embed_model_id, device="cpu")
+# Inicjalizacja embeddera (używa OpenAI embeddings)
+embeddings_model = OpenAIEmbeddings(
+    model="text-embedding-ada-002",
+    openai_api_key=st.secrets["API_KEY"]
+)
 
 def create_index(documents):
     texts = [doc["text"] for doc in documents]
     metadata = [{"filename": doc["filename"], "text": doc["text"]} for doc in documents]
-    with torch.no_grad():
-        embeddings = model_embed.encode(texts, convert_to_numpy=True).astype("float32")
-    index = faiss.IndexFlatL2(embeddings.shape[1])
-    index.add(embeddings)
+    # Generowanie embeddingów
+    embeddings_matrix = embeddings_model.embed_documents(texts)
+    embeddings_matrix = np.array(embeddings_matrix, dtype="float32")
+    # Budowanie indeksu FAISS
+    index = faiss.IndexFlatL2(embeddings_matrix.shape[1])
+    index.add(embeddings_matrix)
     return FAISSIndex(index, metadata)
 
 def retrieve_docs(query, faiss_index, k=3):
-    with torch.no_grad():
-        query_vector = model_embed.encode([query], convert_to_numpy=True).astype("float32")
+    query_embedding = embeddings_model.embed_query(query)
+    query_vector = np.array([query_embedding], dtype="float32")
     return faiss_index.similarity_search(query_vector, k=k)
 
 # === Streamlit App Setup ===
