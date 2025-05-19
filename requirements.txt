@@ -1,0 +1,12 @@
+streamlit
+openai
+PyMuPDF         # moduł „fitz”, do wczytywania PDFów
+faiss-cpu       # wektoryzacja i wyszukiwanie
+numpy
+langchain       # rdzeń LangChain (HumanMessage, SystemMessage, AIMessage itp.)
+langchain-openai      # adapter do OpenAI (ChatOpenAI)
+langchain-huggingface # adapter do HuggingFaceEmbeddings
+pydantic        # walidacja (SecretStr itp.)
+transformers    # backend dla HuggingFaceEmbeddings
+tiktoken        # liczenie tokenów (używane przez LangChain/OpenAI)
+python-dotenv   # (opcjonalnie) do zarządzania sekretami przez .env
